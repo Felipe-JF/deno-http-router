@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "importMap": "import_map.json",
+  "tasks": {
+    "test": "deno test --parallel"
+  }
+}
