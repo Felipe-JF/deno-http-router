@@ -2,8 +2,8 @@ import { Controller, Server } from "../mod.ts";
 
 class HelloWorldController extends Controller {
   constructor() {
-    super("/");
-    this.GET("", this.get.bind(this));
+    super("/hello");
+    this.GET("/world", this.get.bind(this));
   }
 
   // deno-lint-ignore require-await
