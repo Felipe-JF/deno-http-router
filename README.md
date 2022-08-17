@@ -1,10 +1,10 @@
 # deno-http-router
-### Warnning, it's not for production, still in the testing and development phase!
+## Warnning, it's not for production, still in the testing and development phase!
 
 A microframework using native Request, Response, URLPattern and deno std/http
 
 
-# Usage example
+### Usage example
 ```typescript
 import { Controller, Server } from "./mod.ts";
 
@@ -33,7 +33,7 @@ await server.start({
   },
 });
 ```
-# Testing example
+### Testing example
 ```typescript
 Deno.test("Should Hello World", async () => {
   const response = await server.fetch(new Request("http://localhost:8000"));
