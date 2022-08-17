@@ -10,8 +10,9 @@ import { Controller, Server } from "./mod.ts";
 
 class HelloWorldController extends Controller {
   constructor() {
-    super("/");
-    this.GET("", this.get.bind(this));
+    super("/hello");
+    this.GET("/world", this.get.bind(this)).
+    
   }
 
   async get(request: Request, pattern: URLPatternResult): Promise<Response> {
@@ -36,7 +37,7 @@ await server.start({
 ### Testing example
 ```typescript
 Deno.test("Should Hello World", async () => {
-  const response = await server.fetch(new Request("http://localhost:8000"));
+  const response = await server.fetch(new Request("http://localhost:8000/hello/world"));
 
   const data = await response.text()
 
