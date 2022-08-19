@@ -1,4 +1,4 @@
-import { Controller, Server } from "../mod.ts";
+import { Controller, Route, Router, Server } from "../mod.ts";
 import { assertEquals } from "asserts";
 
 Deno.test("Should get all Todos", async () => {
@@ -28,11 +28,11 @@ interface Todo {
 type Todos = readonly Todo[];
 
 class TodoController extends Controller {
-  constructor() {
-    super("/todos");
-    this
-      .GET("/:id?", this.read.bind(this));
-  }
+  router = new Router("/todos", {
+    "/:id?": {
+      get: this.read.bind(this),
+    },
+  });
 
   // deno-lint-ignore require-await
   async read(_request: Request, pattern: URLPatternResult): Promise<Response> {

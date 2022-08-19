@@ -1,19 +1,24 @@
-import { Controller, Server } from "../mod.ts";
+import { Controller, Router, Server } from "./mod.ts";
 
-class HelloWorldController extends Controller {
-  constructor() {
-    super("/hello");
-    this.GET("/world", this.get.bind(this));
-  }
+class ExampleController extends Controller {
+  router = new Router("/example", {
+    "/helloworld": {
+      get: this.helloWorld.bind(this),
+    },
+  });
 
   // deno-lint-ignore require-await
-  async get(_request: Request, _pattern: URLPatternResult): Promise<Response> {
+  async helloWorld(
+    _request: Request,
+    _pattern: URLPatternResult,
+  ): Promise<Response> {
     return new Response("Hello World");
   }
 }
 
-const helloWorldController = new HelloWorldController();
-const server = new Server(helloWorldController);
+const exampleController = new ExampleController();
+
+const server = new Server(exampleController);
 
 await server.start({
   port: 8000,
