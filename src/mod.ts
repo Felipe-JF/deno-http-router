@@ -1,92 +1,89 @@
-import { serve, ServeInit } from "./deps.ts";
+// deno-lint-ignore-file require-await
+type HttpMethod = "GET" | "POST" | "DELETE" | "UPDATE";
 
-type HttpMethod = "GET" | "POST";
+export type Fetch = (request: Request) => Promise<Response>;
+export type Middleware = (fetch: Fetch) => Fetch;
 
-export type Route = (
+export function params(
   request: Request,
-  pattern: URLPatternResult,
-) => Promise<Response>;
-
-type Routes = Map<string, Map<HttpMethod, Route>>;
-
-export abstract class Controller {
-  abstract router: Router;
+  pathname: string,
+): Record<string, string> {
+  return new URLPattern({ pathname }).exec(request.url)?.pathname.groups ?? {};
 }
 
-export class Router {
-  readonly routes: Routes = new Map();
+export class Resource {
+  fetch: Fetch;
+  pattern: URLPattern;
   constructor(
-    private readonly prefix: string,
-    routes: Record<string, Partial<Record<Lowercase<HttpMethod>, Route>>>,
+    pattern: string | URLPattern,
+    methods: Partial<Record<HttpMethod, Fetch>>,
+    options?: { middleware: Middleware },
   ) {
-    this.routes = new Map<string, Map<HttpMethod, Route>>(
-      Object
-        .entries(routes)
-        .map(([pathname, methods]) => {
-          return [
-            this.prefix + pathname,
-            new Map<HttpMethod, Route>(
-              Object.entries(methods).map((
-                [method, route],
-              ) => [method.toUpperCase(), route]) as [HttpMethod, Route][],
-            ),
-          ] as const;
-        }),
+    const fetchs = new Map<HttpMethod, Fetch>(
+      Object.entries(methods) as [HttpMethod, Fetch][],
     );
+
+    this.pattern = pattern instanceof URLPattern
+      ? pattern
+      : new URLPattern({ pathname: pattern });
+
+    this.fetch = async (request) => {
+      const endpoint = fetchs.get(request.method as HttpMethod);
+      if (!endpoint) {
+        return new Response(undefined, { status: 405 });
+      }
+      return endpoint(request);
+    };
+
+    if (options?.middleware) {
+      this.fetch = options.middleware(this.fetch);
+    }
   }
 }
 
-export class Server {
-  private routes: Routes;
-  private patternRoutes: [URLPattern, Map<HttpMethod, Route>][] = [];
+export class Application {
+  private patterns: Map<string, URLPattern>;
+  private resources: Map<URLPattern, Fetch>;
 
-  constructor(...controllers: Controller[]) {
-    this.routes = new Map(
-      controllers.flatMap((
-        controller,
-      ) => [...controller.router.routes.entries()]),
+  constructor(resources: Resource[]) {
+    this.resources = new Map<URLPattern, Fetch>(
+      resources.map(({ pattern, fetch }) => [pattern, fetch]),
     );
-    this.patternRoutes = [...this.routes.entries()].map((
-      [pathname, methodRoute],
-    ) => [new URLPattern({ pathname }), methodRoute]);
-    console.log([...this.routes.entries()]);
+
+    this.patterns = new Map(
+      [...this.resources.entries()].map(([URLPattern]) => {
+        return [URLPattern.pathname, URLPattern] as const;
+      }),
+    );
+
+    this.fetch = this.fetch.bind(this);
   }
 
-  // deno-lint-ignore require-await
   async fetch(request: Request): Promise<Response> {
-    let methodNotAllowed = false;
-    const hashedResult = this.routes.get(new URLPattern(request.url).pathname);
-    if (hashedResult) {
-      console.log("Hashed");
-      const route = hashedResult.get(request.method as HttpMethod);
-      if (route) {
-        return route(request, undefined!); // TODO Map<string, [URLPattern, Map<Method, Route>]>
-      } else {
-        methodNotAllowed = true;
-      }
-    }
-    for (const [urlPattern, methodRoute] of this.patternRoutes) {
-      console.log(urlPattern.pathname, request.url);
+    const pattern = this.match(request.url);
 
-      const result = urlPattern.exec(request.url);
-      if (result) {
-        const route = methodRoute.get(request.method as HttpMethod);
-        if (route) {
-          return route(request, result);
-        } else {
-          methodNotAllowed = true;
-        }
-      }
+    if (!pattern) {
+      return new Response(undefined, { status: 404 });
     }
 
-    if (methodNotAllowed) {
-      return new Response("Method not allowed", { status: 405 });
-    }
+    const route = this.resources.get(pattern)!;
 
-    return new Response("Not found", { status: 404 });
+    return route(request);
   }
 
-  start(options: ServeInit) {
-    return serve(this.fetch.bind(this), options);
+  private match(url: string) {
+    const pattern = this.patterns.get(new URL(url).pathname);
+
+    if (pattern) {
+      console.log("hashed");
+      return pattern;
+    }
+
+    for (const pattern of this.resources.keys()) {
+      if (pattern.test(url)) {
+        return pattern;
+      }
+    }
+    return;
   }
 }

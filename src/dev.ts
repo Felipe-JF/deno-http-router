@@ -1,32 +1,40 @@
-import { Controller, Router, Server } from "./mod.ts";
+// deno-lint-ignore-file require-await
+import { serve } from "./deps.ts";
+import { Application, Middleware, Resource } from "./mod.ts";
 
-class ExampleController extends Controller {
-  router = new Router("/example", {
-    "/helloworld": {
-      get: this.helloWorld.bind(this),
-    },
-  });
+const log: Middleware = (next) => async (request) => {
+  const response = await next(request);
+  console.log({ request, response });
+  return response;
+};
 
-  // deno-lint-ignore require-await
-  async helloWorld(
-    _request: Request,
-    _pattern: URLPatternResult,
-  ): Promise<Response> {
-    return new Response("Hello World");
-  }
-}
-
-const exampleController = new ExampleController();
-
-const server = new Server(exampleController);
-
-await server.start({
-  port: 8000,
-  onListen({ hostname, port }) {
-    if (hostname === "0.0.0.0") {
-      console.log(`Listening on http://localhost:${port}`);
-    } else {
-      console.log(`Listening on ${hostname}:${port}`);
-    }
-  },
+const example = new Resource("/example", {
+  GET: async () => new Response("Hello world!"),
 });
+
+const todo = new Resource("/todos/:id", {
+  GET: async () => new Response("GET Todo"),
+  POST: async () => new Response("POST Todo"),
+  UPDATE: async () => new Response("UPDATE Todo"),
+  DELETE: async () => new Response("DELETE Todo"),
+});
+
+const middlewareExample = new Resource("/example/middleware", {
+  GET: async () => new Response("Hello world!"),
+}, {
+  middleware: log,
+});
+
+const pattern = new URLPattern({
+  pathname: "/example/pattern",
+  protocol: "https",
+  port: "8000",
+});
+
+const patternExample = new Resource(pattern, {
+  GET: async () => new Response("Hello world!"),
+});
+
+const application = new Application([example, todo, middlewareExample]);
+
+await serve(application.fetch);

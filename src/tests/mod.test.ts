@@ -1,56 +1,19 @@
-import { Controller, Route, Router, Server } from "../mod.ts";
+// deno-lint-ignore-file require-await
 import { assertEquals } from "asserts";
+import { Application, Resource } from "../mod.ts";
 
-Deno.test("Should get all Todos", async () => {
-  const { server } = setup();
-
-  const response = await server.fetch(new Request("http://localhost/todos"));
-
-  const todos = await response.json() as Todos;
-
-  assertEquals(todos, [{ id: "0", title: "Some todo" }]);
-});
-
-Deno.test("Should get one Todo", async () => {
-  const { server } = setup();
-
-  const response = await server.fetch(new Request("http://localhost/todos/0"));
-
-  const todo = await response.json() as Todo;
-
-  assertEquals(todo, { id: "0", title: "Some todo" });
-});
-
-interface Todo {
-  id: string;
-  title: string;
-}
-type Todos = readonly Todo[];
-
-class TodoController extends Controller {
-  router = new Router("/todos", {
-    "/:id?": {
-      get: this.read.bind(this),
-    },
+Deno.test("Resource", async () => {
+  const example = new Resource("/example", {
+    GET: async () => new Response("Hello world!"),
   });
 
-  // deno-lint-ignore require-await
-  async read(_request: Request, pattern: URLPatternResult): Promise<Response> {
-    const { id } = pattern.pathname.groups;
+  const application = new Application([example]);
 
-    if (id) {
-      if (id === "0") {
-        return Response.json(<Todo> { id: "0", title: "Some todo" });
-      }
-      return new Response("Bad request", { status: 400 });
-    }
+  const response = await application.fetch(
+    new Request("http://localhost:8000/example"),
+  );
 
-    return Response.json(<Todos> [{ id: "0", title: "Some todo" }]);
-  }
-}
+  const data = await response.text();
 
-function setup() {
-  const todoController = new TodoController();
-  const server = new Server(todoController);
-  return { server };
-}
+  assertEquals(data, "Hello world!");
+});
